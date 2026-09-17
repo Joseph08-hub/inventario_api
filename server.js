@@ -8,7 +8,7 @@ const app = express();
 app.use(bodyParser.json());
 app.use(cors());
 
-const conexion = mysql.createConnection({
+const pool = mysql.createPool({
     host: process.env.DB_HOST,
     port: process.env.DB_PORT,
     user: process.env.DB_USER,
@@ -16,25 +16,21 @@ const conexion = mysql.createConnection({
     database: process.env.DB_NAME,
     ssl: {
         rejectUnauthorized: false
-    }
-});
-
-conexion.connect(err => {
-    if (err) {
-        console.error("Error al conectar a Aiven:", err);
-        return;
-    }
-    console.log("Conectado a MySQL (Aiven)");
+    },
+    waitForConnections: true,
+    connectionLimit: 5,
+    queueLimit: 0
 });
 
 app.get("/", (req, res) => {
     res.send("Bienvenido a Inventario API");
 });
 
+// --- Materiales (Guía 1) ---
 app.post("/materiales", (req, res) => {
     const { nombre, cantidad, estado } = req.body;
     const sql = "INSERT INTO materiales (nombre, cantidad, estado) VALUES (?, ?, ?)";
-    conexion.query(sql, [nombre, cantidad, estado], (err, result) => {
+    pool.query(sql, [nombre, cantidad, estado], (err, result) => {
         if (err) {
             res.json({ status: "error", mensaje: err.message });
         } else {
@@ -44,7 +40,45 @@ app.post("/materiales", (req, res) => {
 });
 
 app.get("/materiales", (req, res) => {
-    conexion.query("SELECT * FROM materiales", (err, result) => {
+    pool.query("SELECT * FROM materiales", (err, result) => {
+        if (err) {
+            res.json({ status: "error", mensaje: err.message });
+        } else {
+            res.json(result);
+        }
+    });
+});
+
+// --- Login y roles (Guía 2) ---
+app.post("/login", (req, res) => {
+    const { usuario, clave } = req.body;
+    const sql = "SELECT * FROM usuarios WHERE usuario = ? AND clave = ?";
+    pool.query(sql, [usuario, clave], (err, result) => {
+        if (err) {
+            res.json({ status: "error", mensaje: err.message });
+        } else if (result.length > 0) {
+            res.json({ status: "ok", rol: result[0].rol });
+        } else {
+            res.json({ status: "fail", mensaje: "Credenciales incorrectas" });
+        }
+    });
+});
+
+// --- Préstamos y devoluciones (Guía 3) ---
+app.post("/prestamos", (req, res) => {
+    const { material_id, fecha_prestamo, fecha_devolucion, maestro } = req.body;
+    const sql = "INSERT INTO prestamos (material_id, fecha_prestamo, fecha_devolucion, maestro) VALUES (?, ?, ?, ?)";
+    pool.query(sql, [material_id, fecha_prestamo, fecha_devolucion, maestro], (err, result) => {
+        if (err) {
+            res.json({ status: "error", mensaje: err.message });
+        } else {
+            res.json({ status: "ok", mensaje: "Préstamo registrado" });
+        }
+    });
+});
+
+app.get("/prestamos", (req, res) => {
+    pool.query("SELECT * FROM prestamos", (err, result) => {
         if (err) {
             res.json({ status: "error", mensaje: err.message });
         } else {
