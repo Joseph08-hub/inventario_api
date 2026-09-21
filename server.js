@@ -64,7 +64,7 @@ app.post("/login", (req, res) => {
     });
 });
 
-// --- Préstamos y devoluciones (Guía 3) ---
+// --- Préstamos: registrar (Guía 3) ---
 app.post("/prestamos", (req, res) => {
     const { material_id, fecha_prestamo, fecha_devolucion, maestro } = req.body;
     const sql = "INSERT INTO prestamos (material_id, fecha_prestamo, fecha_devolucion, maestro) VALUES (?, ?, ?, ?)";
@@ -77,12 +77,45 @@ app.post("/prestamos", (req, res) => {
     });
 });
 
+// --- Préstamos: listar con nombre del material (Guía 4 + mejora de Guía 5) ---
 app.get("/prestamos", (req, res) => {
-    pool.query("SELECT * FROM prestamos", (err, result) => {
+    const sql = `
+        SELECT prestamos.id, materiales.nombre AS material,
+               prestamos.fecha_prestamo, prestamos.fecha_devolucion, prestamos.maestro
+        FROM prestamos
+        INNER JOIN materiales ON prestamos.material_id = materiales.id
+        ORDER BY prestamos.id DESC
+    `;
+    pool.query(sql, (err, result) => {
         if (err) {
             res.json({ status: "error", mensaje: err.message });
         } else {
             res.json(result);
+        }
+    });
+});
+
+// --- Préstamos: actualizar fecha de devolución manualmente (Guía 5) ---
+app.put("/prestamos/:id", (req, res) => {
+    const { fecha_devolucion } = req.body;
+    const sql = "UPDATE prestamos SET fecha_devolucion = ? WHERE id = ?";
+    pool.query(sql, [fecha_devolucion, req.params.id], (err, result) => {
+        if (err) {
+            res.json({ status: "error", mensaje: err.message });
+        } else {
+            res.json({ status: "ok", mensaje: "Préstamo actualizado" });
+        }
+    });
+});
+
+// --- Préstamos: marcar devolución con la fecha/hora actual (Guía 5) ---
+app.put("/prestamos/devolver/:id", (req, res) => {
+    const sql = "UPDATE prestamos SET fecha_devolucion = NOW() WHERE id = ?";
+    pool.query(sql, [req.params.id], (err, result) => {
+        if (err) {
+            res.json({ status: "error", mensaje: err.message });
+        } else {
+            res.json({ status: "ok", mensaje: "Material devuelto" });
         }
     });
 });
