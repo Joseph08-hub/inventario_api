@@ -64,11 +64,11 @@ app.post("/login", (req, res) => {
     });
 });
 
-// --- Préstamos: registrar (Guía 3) ---
+// --- Préstamos: registrar (Guía 3, CORREGIDO en Guía 8: ya no recibe fecha_devolucion) ---
 app.post("/prestamos", (req, res) => {
-    const { material_id, fecha_prestamo, fecha_devolucion, maestro } = req.body;
-    const sql = "INSERT INTO prestamos (material_id, fecha_prestamo, fecha_devolucion, maestro) VALUES (?, ?, ?, ?)";
-    pool.query(sql, [material_id, fecha_prestamo, fecha_devolucion, maestro], (err, result) => {
+    const { material_id, fecha_prestamo, maestro } = req.body;
+    const sql = "INSERT INTO prestamos (material_id, fecha_prestamo, maestro) VALUES (?, ?, ?)";
+    pool.query(sql, [material_id, fecha_prestamo, maestro], (err, result) => {
         if (err) {
             res.json({ status: "error", mensaje: err.message });
         } else {
@@ -77,7 +77,7 @@ app.post("/prestamos", (req, res) => {
     });
 });
 
-// --- Préstamos: listar con nombre del material (Guía 4 + mejora de Guía 5) ---
+// --- Préstamos: listar con nombre del material (Guía 4 + JOIN de Guía 5) ---
 app.get("/prestamos", (req, res) => {
     const sql = `
         SELECT prestamos.id, materiales.nombre AS material,
@@ -108,7 +108,7 @@ app.put("/prestamos/:id", (req, res) => {
     });
 });
 
-// --- Préstamos: marcar devolución con la fecha/hora actual (Guía 5) ---
+// --- Préstamos: marcar devolución con la fecha/hora actual (Guía 5, confirmado en Guía 8) ---
 app.put("/prestamos/devolver/:id", (req, res) => {
     const sql = "UPDATE prestamos SET fecha_devolucion = NOW() WHERE id = ?";
     pool.query(sql, [req.params.id], (err, result) => {
@@ -117,6 +117,31 @@ app.put("/prestamos/devolver/:id", (req, res) => {
         } else {
             res.json({ status: "ok", mensaje: "Material devuelto" });
         }
+    });
+});
+
+// --- Reportes y estadísticas (Guía 6, reutilizados en Guía 7) ---
+app.get("/reportes/total", (req, res) => {
+    const sql = "SELECT COUNT(*) AS total FROM prestamos";
+    pool.query(sql, (err, result) => {
+        if (err) res.json({ status: "error", mensaje: err.message });
+        else res.json(result[0]);
+    });
+});
+
+app.get("/reportes/pendientes", (req, res) => {
+    const sql = "SELECT COUNT(*) AS pendientes FROM prestamos WHERE fecha_devolucion IS NULL";
+    pool.query(sql, (err, result) => {
+        if (err) res.json({ status: "error", mensaje: err.message });
+        else res.json(result[0]);
+    });
+});
+
+app.get("/reportes/devueltos", (req, res) => {
+    const sql = "SELECT COUNT(*) AS devueltos FROM prestamos WHERE fecha_devolucion IS NOT NULL";
+    pool.query(sql, (err, result) => {
+        if (err) res.json({ status: "error", mensaje: err.message });
+        else res.json(result[0]);
     });
 });
 
