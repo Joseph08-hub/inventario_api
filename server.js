@@ -64,20 +64,30 @@ app.post("/login", (req, res) => {
     });
 });
 
-// --- Préstamos: registrar (Guía 3, CORREGIDO en Guía 8: ya no recibe fecha_devolucion) ---
+// --- Préstamos: registrar, CON validación de permisos (Guía 3 + 8 + 10) ---
 app.post("/prestamos", (req, res) => {
     const { material_id, fecha_prestamo, maestro } = req.body;
-    const sql = "INSERT INTO prestamos (material_id, fecha_prestamo, maestro) VALUES (?, ?, ?)";
-    pool.query(sql, [material_id, fecha_prestamo, maestro], (err, result) => {
+
+    const sqlPermiso = "SELECT * FROM permisos WHERE maestro = ? AND material_id = ? AND puede_prestar = TRUE";
+    pool.query(sqlPermiso, [maestro, material_id], (err, result) => {
         if (err) {
             res.json({ status: "error", mensaje: err.message });
+        } else if (result.length === 0) {
+            res.json({ status: "fail", mensaje: "No tienes permiso para prestar este material" });
         } else {
-            res.json({ status: "ok", mensaje: "Préstamo registrado" });
+            const sql = "INSERT INTO prestamos (material_id, fecha_prestamo, maestro) VALUES (?, ?, ?)";
+            pool.query(sql, [material_id, fecha_prestamo, maestro], (err2, result2) => {
+                if (err2) {
+                    res.json({ status: "error", mensaje: err2.message });
+                } else {
+                    res.json({ status: "ok", mensaje: "Préstamo registrado" });
+                }
+            });
         }
     });
 });
 
-// --- Préstamos: listar con nombre del material (Guía 4 + JOIN de Guía 5) ---
+// --- Préstamos: listar con nombre del material (Guía 4 + 5) ---
 app.get("/prestamos", (req, res) => {
     const sql = `
         SELECT prestamos.id, materiales.nombre AS material,
@@ -108,7 +118,7 @@ app.put("/prestamos/:id", (req, res) => {
     });
 });
 
-// --- Préstamos: marcar devolución con la fecha/hora actual (Guía 5, confirmado en Guía 8) ---
+// --- Préstamos: marcar devolución por ID de préstamo (usado en la Lista de Préstamos) ---
 app.put("/prestamos/devolver/:id", (req, res) => {
     const sql = "UPDATE prestamos SET fecha_devolucion = NOW() WHERE id = ?";
     pool.query(sql, [req.params.id], (err, result) => {
@@ -120,28 +130,68 @@ app.put("/prestamos/devolver/:id", (req, res) => {
     });
 });
 
-// --- Reportes y estadísticas (Guía 6, reutilizados en Guía 7) ---
+// --- Préstamos: marcar devolución por ID de MATERIAL (usado en escaneo QR, Guía 11) ---
+app.put("/prestamos/devolver-material/:material_id", (req, res) => {
+    const sql = "UPDATE prestamos SET fecha_devolucion = NOW() WHERE material_id = ? AND fecha_devolucion IS NULL";
+    pool.query(sql, [req.params.material_id], (err, result) => {
+        if (err) {
+            res.json({ status: "error", mensaje: err.message });
+        } else {
+            res.json({ status: "ok", mensaje: "Entrega registrada" });
+        }
+    });
+});
+
+// --- Reportes (Guía 6 y 7) ---
 app.get("/reportes/total", (req, res) => {
-    const sql = "SELECT COUNT(*) AS total FROM prestamos";
-    pool.query(sql, (err, result) => {
+    pool.query("SELECT COUNT(*) AS total FROM prestamos", (err, result) => {
         if (err) res.json({ status: "error", mensaje: err.message });
         else res.json(result[0]);
     });
 });
 
 app.get("/reportes/pendientes", (req, res) => {
-    const sql = "SELECT COUNT(*) AS pendientes FROM prestamos WHERE fecha_devolucion IS NULL";
-    pool.query(sql, (err, result) => {
+    pool.query("SELECT COUNT(*) AS pendientes FROM prestamos WHERE fecha_devolucion IS NULL", (err, result) => {
         if (err) res.json({ status: "error", mensaje: err.message });
         else res.json(result[0]);
     });
 });
 
 app.get("/reportes/devueltos", (req, res) => {
-    const sql = "SELECT COUNT(*) AS devueltos FROM prestamos WHERE fecha_devolucion IS NOT NULL";
-    pool.query(sql, (err, result) => {
+    pool.query("SELECT COUNT(*) AS devueltos FROM prestamos WHERE fecha_devolucion IS NOT NULL", (err, result) => {
         if (err) res.json({ status: "error", mensaje: err.message });
         else res.json(result[0]);
+    });
+});
+
+// --- Notificaciones: préstamos pendientes de un maestro, con nombre del material (Guía 9) ---
+app.get("/notificaciones/:maestro", (req, res) => {
+    const sql = `
+        SELECT prestamos.id, materiales.nombre AS material, prestamos.fecha_prestamo
+        FROM prestamos
+        INNER JOIN materiales ON prestamos.material_id = materiales.id
+        WHERE prestamos.maestro = ? AND prestamos.fecha_devolucion IS NULL
+        ORDER BY prestamos.fecha_prestamo ASC
+    `;
+    pool.query(sql, [req.params.maestro], (err, result) => {
+        if (err) {
+            res.json({ status: "error", mensaje: err.message });
+        } else {
+            res.json(result);
+        }
+    });
+});
+
+// --- Permisos: asignar permisos a un maestro sobre un material (Guía 10) ---
+app.post("/permisos", (req, res) => {
+    const { maestro, material_id, puede_ver, puede_prestar, puede_devolver } = req.body;
+    const sql = "INSERT INTO permisos (maestro, material_id, puede_ver, puede_prestar, puede_devolver) VALUES (?, ?, ?, ?, ?)";
+    pool.query(sql, [maestro, material_id, puede_ver, puede_prestar, puede_devolver], (err, result) => {
+        if (err) {
+            res.json({ status: "error", mensaje: err.message });
+        } else {
+            res.json({ status: "ok", mensaje: "Permiso asignado" });
+        }
     });
 });
 
