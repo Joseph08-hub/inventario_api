@@ -1,22 +1,22 @@
 {
-  "name": "inventario-api",
+  "name": "inventario_api",
   "version": "1.0.0",
-  "description": "API del Inventario Escolar",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
-  "engines": {
-    "node": ">=18"
-  },
+  "license": "ISC",
   "dependencies": {
-    "bcryptjs": "^2.4.3",
-    "cors": "^2.8.5",
+    "bcryptjs": "^3.0.3",
+    "body-parser": "^2.3.0",
+    "cors": "^2.8.6",
+    "dotenv": "^18.0.6",
     "exceljs": "^4.4.0",
-    "express": "^4.19.2",
-    "jsonwebtoken": "^9.0.2",
-    "multer": "^1.4.5-lts.1",
-    "mysql2": "^3.11.0",
-    "pdfkit": "^0.15.0"
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
+    "multer": "^2.4.0",
+    "mysql2": "^3.24.5",
+    "pdfkit": "^0.20.2",
+    "qrcode": "^1.5.4"
   }
 }
